@@ -17,7 +17,7 @@ object CharacterSelectionResultMessage
     buf.get match {
       case 0 =>
         Success()
-      case 1 =>
+      case _ =>
         Failure()
     }
 }

@@ -54,7 +54,7 @@ class WorldAccessor(client: ActorRef, version: Version)
         case 8 =>
           val versionResult = ClientVersionResultMessage.read(buf)
           if (!versionResult.success) {
-            log.error("Invalid client version, required is {}", versionResult.required)
+            log.error("invalid client version, required is {}", versionResult.required)
             stop(self)
           }
           unstashAll()
@@ -78,7 +78,7 @@ class WorldAccessor(client: ActorRef, version: Version)
       id match {
         case 6 =>
           val message = ForcedDisconnectionReasonMessage.read(buf)
-          log.error("Force disconnected with {}", message)
+          log.error("iorce disconnected with {}", message)
           stop(self)
         case 1025 =>
           import ClientAuthenticationResultsMessage._
@@ -86,7 +86,7 @@ class WorldAccessor(client: ActorRef, version: Version)
             case Success(_) =>
               log.info("game world authentication successful")
             case message =>
-              log.error("Authentication failed with {}", message)
+              log.error("authentication failed with {}", message)
               stop(self)
           }
         case 1202 =>
@@ -95,7 +95,7 @@ class WorldAccessor(client: ActorRef, version: Version)
             case Success() =>
               log.info("game world selection successful")
             case Failure() =>
-              log.error("Failed during world selection")
+              log.error("failed during world selection")
               stop(self)
           }
         case 2048 =>
@@ -106,11 +106,11 @@ class WorldAccessor(client: ActorRef, version: Version)
           CharacterSelectionResultMessage.read(buf) match {
             case Success() =>
               // game server needs some time, otherwise doesn't answer
-              log.info(s"character selection successful, entering the game world in $WorldHandleTimeout")
+              log.info("character selection successful, entering the game world in {}", WorldHandleTimeout)
               system.scheduler.scheduleOnce(WorldHandleTimeout, client, ConnectedToWorld())
               become(connected(connection))
             case Failure() =>
-              log.error("Failed during character selection")
+              log.error("failed during character selection")
               stop(self)
           }
         case _ =>
