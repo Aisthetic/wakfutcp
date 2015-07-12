@@ -4,14 +4,20 @@ import java.nio.ByteBuffer
 
 import jac3km4.wakfutcp.Protocol.{InputMessage, InputMessageReader}
 
-case class WorldSelectionResultMessage
-(
-  errorCode: Byte
-  ) extends InputMessage
+sealed trait WorldSelectionResultMessage extends InputMessage
 
 object WorldSelectionResultMessage
   extends InputMessageReader[WorldSelectionResultMessage] {
 
+  case class Success() extends WorldSelectionResultMessage
+
+  case class Failure() extends WorldSelectionResultMessage
+
   def read(buf: ByteBuffer) =
-    WorldSelectionResultMessage(buf.get)
+    buf.get match {
+      case 0 | 9 =>
+        Success()
+      case _ =>
+        Failure()
+    }
 }

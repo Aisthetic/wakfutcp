@@ -29,6 +29,8 @@ class WorldDispatcher(client: ActorRef, credentials: Credentials)
 
   import context._
 
+  val OriginalVersion = Version(1, 43, 10)
+
   def receive = {
     case Connected(l, r) =>
       become(obtainRequiredVersion(sender()))
@@ -43,9 +45,10 @@ class WorldDispatcher(client: ActorRef, credentials: Credentials)
       val id = buf.getShort
       id match {
         case 110 =>
-          connection ! wrap(ClientVersionMessage(Version(1, 43, 10)))
+          connection ! wrap(ClientVersionMessage(OriginalVersion))
         case 8 =>
-          val versionMessageResult = ClientVersionMessageResult.read(buf)
+          val versionMessageResult = ClientVersionResultMessage.read(buf)
+          log.info("server version: {}", versionMessageResult.required)
           connection ! wrap(ClientPublicKeyRequestMessage(8))
           become(connectToWorld(connection, versionMessageResult.required))
       }
@@ -66,8 +69,16 @@ class WorldDispatcher(client: ActorRef, credentials: Credentials)
               .create(credentials.login, credentials.password, publicKeyMessage.salt, cipher)
           )
         case 1027 =>
+          import ClientDispatchAuthenticationResultMessage._
           val authenticationResultMessage = ClientDispatchAuthenticationResultMessage.read(buf)
-          connection ! wrap(ClientProxiesRequestMessage())
+          authenticationResultMessage.result match {
+            case Success() =>
+              log.info("succesfully logged into the server")
+              connection ! wrap(ClientProxiesRequestMessage())
+            case message =>
+              log.error("failed during login with {}", message)
+              stop(self)
+          }
         case 1036 =>
           val proxiesResultMessage = ClientProxiesResultMessage.read(buf)
           client ! ServerList(proxiesResultMessage.proxies, proxiesResultMessage.worlds)
@@ -86,15 +97,27 @@ class WorldDispatcher(client: ActorRef, credentials: Credentials)
       val id = buf.getShort
       id match {
         case 1212 =>
-          val authenticationTokenResultMessage = AuthenticationTokenResultMessage.read(buf)
-          world ! WorldAuthToken(authenticationTokenResultMessage.token)
-          sender() ! wrap(EndConnectionMessage())
-          unstashAll()
-          unbecome()
+          import AuthenticationTokenResultMessage._
+          AuthenticationTokenResultMessage.read(buf) match {
+            case Success(token) =>
+              world ! WorldAuthToken(token)
+              sender() ! wrap(EndConnectionMessage())
+              unstashAll()
+              watch(world)
+              become(watchAccessor(world))
+            case Failure() =>
+              log.error("failed to receive authentication token")
+              stop(self)
+          }
         case _ =>
-          buf.rewind
-          stash()
       }
-    case _ => stash()
+    case _ =>
+      stash()
+  }
+
+  def watchAccessor(world: ActorRef): Receive = {
+    case _: Terminated =>
+      log.info("shutting down")
+      system.shutdown()
   }
 }

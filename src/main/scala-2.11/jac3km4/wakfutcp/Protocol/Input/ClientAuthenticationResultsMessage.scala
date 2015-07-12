@@ -3,6 +3,7 @@ package jac3km4.wakfutcp.Protocol.Input
 import java.nio.ByteBuffer
 
 import jac3km4.wakfutcp.Protocol.{InputMessage, InputMessageReader}
+import sun.reflect.generics.reflectiveObjects.NotImplementedException
 
 import scala.concurrent.duration._
 
@@ -18,7 +19,7 @@ object ClientAuthenticationResultsMessage
     banDuration: FiniteDuration
     ) extends ClientAuthenticationResultsMessage
 
-  case class SuccessfulAuthentication
+  case class Success
   (
     serializedAccountInformation: Array[Byte]
     ) extends ClientAuthenticationResultsMessage
@@ -38,7 +39,7 @@ object ClientAuthenticationResultsMessage
   def read(buf: ByteBuffer) = {
     val resultCode = buf.get
     resultCode match {
-      case 0 => SuccessfulAuthentication(buf.getByteArray(buf.getShort))
+      case 0 => Success(buf.getByteArray(buf.getShort))
       case 2 => InvalidLogin()
       case 3 => AlreadyConnected()
       case 5 => AccountBanned(buf.getInt.minutes)
@@ -47,6 +48,8 @@ object ClientAuthenticationResultsMessage
       case 11 => TooManyConnections()
       case 40 => InvalidLogin()
       case 42 => InvalidToken()
+      case _ =>
+        throw new NotImplementedException()
     }
   }
 }

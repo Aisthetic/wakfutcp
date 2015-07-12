@@ -10,8 +10,7 @@ import jac3km4.wakfutcp.WorldDispatcher.WorldAuthToken
 
 import scala.concurrent.duration._
 
-object WorldAccessor
-  extends {
+object WorldAccessor {
   def props(client: ActorRef, version: Version) =
     Props(classOf[WorldAccessor], client, version)
 }
@@ -20,6 +19,24 @@ class WorldAccessor(client: ActorRef, version: Version)
   extends Actor with ActorLogging with Stash with Messenger {
 
   import context._
+
+  val WorldHandleTimeout = 100.millis
+
+  /*
+    mesages incoming during the server session
+    should be processed here
+   */
+  def connected(connection: ActorRef): Receive = {
+    case Inbound(buf) =>
+      val id = buf.getShort
+      id match {
+        case 20100 =>
+          client ! MarketConsultResultMessage.read(buf)
+        case _ =>
+      }
+    case msg: Outbound =>
+      connection ! msg
+  }
 
   def receive = {
     case Connected(l, r) =>
@@ -35,7 +52,11 @@ class WorldAccessor(client: ActorRef, version: Version)
         case 110 =>
           connection ! wrap(ClientVersionMessage(version))
         case 8 =>
-          val versionMessageResult = ClientVersionMessageResult.read(buf)
+          val versionResult = ClientVersionResultMessage.read(buf)
+          if (!versionResult.success) {
+            log.error("Invalid client version, required is {}", versionResult.required)
+            stop(self)
+          }
           unstashAll()
           become {
             case WorldAuthToken(tok) =>
@@ -56,35 +77,45 @@ class WorldAccessor(client: ActorRef, version: Version)
       val id = buf.getShort
       id match {
         case 6 =>
-          val forcedDisconnectionMessage = ForcedDisconnectionReasonMessage.read(buf)
-          println(forcedDisconnectionMessage)
+          val message = ForcedDisconnectionReasonMessage.read(buf)
+          log.error("Force disconnected with {}", message)
+          stop(self)
         case 1025 =>
-          val authenticationResultsMessage = ClientAuthenticationResultsMessage.read(buf)
+          import ClientAuthenticationResultsMessage._
+          ClientAuthenticationResultsMessage.read(buf) match {
+            case Success(_) =>
+              log.info("game world authentication successful")
+            case message =>
+              log.error("Authentication failed with {}", message)
+              stop(self)
+          }
         case 1202 =>
-          val worldSelectionResultMessage = WorldSelectionResultMessage.read(buf)
+          import WorldSelectionResultMessage._
+          WorldSelectionResultMessage.read(buf) match {
+            case Success() =>
+              log.info("game world selection successful")
+            case Failure() =>
+              log.error("Failed during world selection")
+              stop(self)
+          }
         case 2048 =>
-          val charactersListMessage = CharactersListMessage.read(buf)
-          client ! CharacterList(charactersListMessage.characters)
+          val charactersList = CharactersListMessage.read(buf)
+          client ! CharacterList(charactersList.characters)
         case 2050 =>
-          val characterSelectionResultMessage = CharacterSelectionResultMessage.read(buf)
-          // game server needs some time, otherwise doesn't answer
-          system.scheduler.scheduleOnce(100.millis, client, ConnectedToWorld())
-          become(connected(connection))
+          import jac3km4.wakfutcp.Protocol.Input.CharacterSelectionResultMessage._
+          CharacterSelectionResultMessage.read(buf) match {
+            case Success() =>
+              // game server needs some time, otherwise doesn't answer
+              log.info(s"character selection successful, entering the game world in $WorldHandleTimeout")
+              system.scheduler.scheduleOnce(WorldHandleTimeout, client, ConnectedToWorld())
+              become(connected(connection))
+            case Failure() =>
+              log.error("Failed during character selection")
+              stop(self)
+          }
         case _ =>
       }
     case CharacterChoice(character) =>
       connection ! wrap(CharacterSelectionMessage(character.id, character.name))
-  }
-
-  def connected(connection: ActorRef): Receive = {
-    case Inbound(buf) =>
-      val id = buf.getShort
-      id match {
-        case 20100 =>
-          client ! MarketConsultResultMessage.read(buf)
-        case _ =>
-      }
-    case msg: Outbound =>
-      connection ! msg
   }
 }
