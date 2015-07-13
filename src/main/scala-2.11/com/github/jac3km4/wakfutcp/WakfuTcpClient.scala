@@ -6,21 +6,16 @@ import java.nio.ByteBuffer
 import akka.actor._
 import akka.io.{IO, Tcp}
 import akka.util.ByteString
+import com.github.jac3km4.wakfutcp.Protocol.Input._
+import com.github.jac3km4.wakfutcp.Protocol.InputMessageReader
 import com.github.jac3km4.wakfutcp.Util.Extensions
-import com.github.jac3km4.wakfutcp.WakfuTcpClient.{Inbound, Outbound}
 
 object WakfuTcpClient {
-
   def props(handler: ActorRef, remote: InetSocketAddress) =
     Props(classOf[WakfuTcpClient], handler, remote)
-
-  case class Inbound(data: ByteBuffer)
-
-  case class Outbound(data: ByteBuffer)
-
 }
 
-class WakfuTcpClient(handler: ActorRef,
+class WakfuTcpClient(val handler: ActorRef,
                      remote: InetSocketAddress)
   extends Actor with ActorLogging {
 
@@ -56,18 +51,41 @@ class WakfuTcpClient(handler: ActorRef,
         val length = buf.getShort
         if (length < 5 || length > buf.limit - buf.position + 2)
           buf.position(buf.limit)
-        else
-          handler ! Inbound(ByteBuffer.wrap(buf.getByteArray(length - 2)))
+        else {
+          val id = buf.getShort
+          getReader(id) match {
+            case Some(reader) =>
+              val buffer = ByteBuffer.wrap(buf.getByteArray(length - 4))
+              handler ! reader.read(buffer)
+            case None =>
+              buf.position(buf.position + length - 4)
+          }
+        }
       } while (buf.limit > buf.position)
-    case Outbound(data) =>
-      connection ! Write(ByteString(data.array))
+    case data: ByteString =>
+      connection ! Write(data)
     case _: ConnectionClosed =>
       log.info("connection closed")
-      connection ! Close
       stop(self)
     case _: Terminated =>
       log.info("terminating with listener")
       connection ! Close
       stop(self)
+  }
+
+  private def getReader(id: Short): Option[InputMessageReader[_]] = id match {
+    case 6 => Some(ForcedDisconnectionReasonMessage)
+    case 8 => Some(ClientVersionResultMessage)
+    case 110 => Some(ClientIpMessage)
+    case 1025 => Some(ClientAuthenticationResultsMessage)
+    case 1027 => Some(ClientDispatchAuthenticationResultMessage)
+    case 1034 => Some(ClientPublicKeyMessage)
+    case 1036 => Some(ClientProxiesResultMessage)
+    case 1202 => Some(WorldSelectionResultMessage)
+    case 1212 => Some(AuthenticationTokenResultMessage)
+    case 2048 => Some(CharactersListMessage)
+    case 2050 => Some(CharacterSelectionResultMessage)
+    case 20100 => Some(MarketConsultResultMessage)
+    case _ => None
   }
 }

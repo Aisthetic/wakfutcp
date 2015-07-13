@@ -20,7 +20,7 @@ object ClientPublicKeyMessage
   def read(buf: ByteBuffer) = {
     ClientPublicKeyMessage(
       buf.getLong,
-      buf.getByteArray(buf.limit - 10)
+      buf.getByteArray(buf.limit - 8)
     )
   }
 }

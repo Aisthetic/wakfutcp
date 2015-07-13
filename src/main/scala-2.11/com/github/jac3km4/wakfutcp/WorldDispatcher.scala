@@ -10,7 +10,6 @@ import akka.io.Tcp.Connected
 import com.github.jac3km4.wakfutcp.Protocol.Domain.Version
 import com.github.jac3km4.wakfutcp.Protocol.Input._
 import com.github.jac3km4.wakfutcp.Protocol.Output._
-import com.github.jac3km4.wakfutcp.WakfuTcpClient.Inbound
 import com.github.jac3km4.wakfutcp.WorldDispatcher.{Credentials, WorldAuthToken}
 
 object WorldDispatcher {
@@ -24,7 +23,7 @@ object WorldDispatcher {
 
 }
 
-class WorldDispatcher(client: ActorRef, credentials: Credentials)
+class WorldDispatcher(val client: ActorRef, val credentials: Credentials)
   extends Actor with ActorLogging with Stash with Messenger {
 
   import context._
@@ -41,49 +40,37 @@ class WorldDispatcher(client: ActorRef, credentials: Credentials)
     to pretend that we have it
   */
   def obtainRequiredVersion(connection: ActorRef): Receive = {
-    case Inbound(buf) =>
-      val id = buf.getShort
-      id match {
-        case 110 =>
-          connection ! wrap(ClientVersionMessage(OriginalVersion))
-        case 8 =>
-          val versionMessageResult = ClientVersionResultMessage.read(buf)
-          log.info("server version: {}", versionMessageResult.required)
-          connection ! wrap(ClientPublicKeyRequestMessage(8))
-          become(connectToWorld(connection, versionMessageResult.required))
-      }
+    case ClientIpMessage(_) =>
+      connection ! wrap(ClientVersionMessage(OriginalVersion))
+
+    case ClientVersionResultMessage(success, required) =>
+      log.info("server version: {}", required)
+      connection ! wrap(ClientPublicKeyRequestMessage(8))
+      become(connectToWorld(connection, required))
   }
 
   def connectToWorld(connection: ActorRef, version: Version): Receive = {
-    case Inbound(buf) =>
-      val id = buf.getShort
-      id match {
-        case 1034 =>
-          val publicKeyMessage = ClientPublicKeyMessage.read(buf)
-          val cert = new X509EncodedKeySpec(publicKeyMessage.publicKey)
-          val keyFactory = KeyFactory.getInstance("RSA")
-          val cipher = Cipher.getInstance("RSA")
-          cipher.init(Cipher.ENCRYPT_MODE, keyFactory.generatePublic(cert))
-          connection ! wrap(
-            ClientDispatchAuthenticationMessage
-              .create(credentials.login, credentials.password, publicKeyMessage.salt, cipher)
-          )
-        case 1027 =>
-          import ClientDispatchAuthenticationResultMessage._
-          val authenticationResultMessage = ClientDispatchAuthenticationResultMessage.read(buf)
-          authenticationResultMessage.result match {
-            case Success() =>
-              log.info("succesfully logged into the server")
-              connection ! wrap(ClientProxiesRequestMessage())
-            case message =>
-              log.error("failed during login with {}", message)
-              stop(self)
-          }
-        case 1036 =>
-          val proxiesResultMessage = ClientProxiesResultMessage.read(buf)
-          client ! ServerList(proxiesResultMessage.proxies, proxiesResultMessage.worlds)
-        case _ =>
+    case ClientPublicKeyMessage(salt, publicKey) =>
+      val cert = new X509EncodedKeySpec(publicKey)
+      val keyFactory = KeyFactory.getInstance("RSA")
+      val cipher = Cipher.getInstance("RSA")
+      cipher.init(Cipher.ENCRYPT_MODE, keyFactory.generatePublic(cert))
+      connection ! wrap(ClientDispatchAuthenticationMessage
+        .create(credentials.login, credentials.password, salt, cipher))
+
+    case ClientDispatchAuthenticationResultMessage(result, _, _) =>
+      import ClientDispatchAuthenticationResultMessage._
+      result match {
+        case Success() =>
+          log.info("succesfully logged into the server")
+          connection ! wrap(ClientProxiesRequestMessage())
+        case message =>
+          throw AuthenticationException(s"Login failed with $message")
       }
+
+    case ClientProxiesResultMessage(proxies, worlds) =>
+      client ! ServerList(proxies, worlds)
+
     case ServerChoice(server) =>
       connection ! wrap(AuthenticationTokenRequestMessage(server.id, 0))
       val accessor = actorOf(Props(classOf[WorldAccessor], client, version))
@@ -93,31 +80,11 @@ class WorldDispatcher(client: ActorRef, credentials: Credentials)
   }
 
   def awaitAuthToken(world: ActorRef): Receive = {
-    case Inbound(buf) =>
-      val id = buf.getShort
-      id match {
-        case 1212 =>
-          import AuthenticationTokenResultMessage._
-          AuthenticationTokenResultMessage.read(buf) match {
-            case Success(token) =>
-              world ! WorldAuthToken(token)
-              sender() ! wrap(EndConnectionMessage())
-              unstashAll()
-              watch(world)
-              become(watchAccessor(world))
-            case Failure() =>
-              log.error("failed to receive authentication token")
-              stop(self)
-          }
-        case _ =>
-      }
-    case _ =>
-      stash()
-  }
+    case AuthenticationTokenResultMessage.Success(token) =>
+      world ! WorldAuthToken(token)
+      sender() ! wrap(EndConnectionMessage())
 
-  def watchAccessor(world: ActorRef): Receive = {
-    case _: Terminated =>
-      log.info("shutting down")
-      system.shutdown()
+    case AuthenticationTokenResultMessage.Failure() =>
+      throw AuthenticationException("Failed to receive authentication token")
   }
 }
