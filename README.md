@@ -1,9 +1,7 @@
 # wakfutcp
-This is a TCP client which allows you to connect to
-Wakfu servers via TCP and perform interactions like a regular client.
-It's written in Scala using the Akka framework.
-It's a very early version with very little to none error handling,
-but basic authentication and stuff like reading market board works.
+This is a TCP client written in Scala, using the
+Akka framework. It's goal is to perform interactions
+with the wakfu game servers like a regular game client.
 
 The idea is basically that you create a client actor which makes use
 of the connection Actors to interact with the game.
