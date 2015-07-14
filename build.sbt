@@ -11,5 +11,6 @@ publishMavenStyle := true
 scalacOptions ++= Seq("-feature", "-deprecation")
 
 libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-actor" % "2.3.11"
+  "com.typesafe.akka" %% "akka-actor" % "2.3.11",
+  "com.github.nscala-time" %% "nscala-time" % "2.0.0"
 )
