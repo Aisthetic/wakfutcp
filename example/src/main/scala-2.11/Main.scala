@@ -1,8 +1,8 @@
 import java.net.InetSocketAddress
 
 import akka.actor._
-import com.github.jac3km4.wakfutcp.WorldDispatcher.Credentials
-import com.github.jac3km4.wakfutcp._
+import com.github.wakfutcp.WorldDispatcher.Credentials
+import com.github.wakfutcp.{WakfuTcpClient, WorldDispatcher}
 import com.typesafe.config.ConfigFactory
 
 object Main {
@@ -12,7 +12,7 @@ object Main {
     val gate = factory.getConfig("gate")
     val system = ActorSystem()
 
-    val mallrat = system.actorOf(Props[Mallrat])
+    val mallrat = system.actorOf(Props[MarketSniffer])
 
     // this handles connection
     val dispatcher = system.actorOf(Props(classOf[WorldDispatcher], mallrat,
