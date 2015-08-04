@@ -15,24 +15,25 @@ def receive = {
     case CharacterList(characters) =>
       sender() ! CharacterChoice(characters.find(_.name == "Derp").get)
     case ConnectedToWorld() =>
-      /*
-        command used to check the market
-        on the astrub board
-       */
-      sender() ! wrap(InteractiveElementActionMessage(18744, 12))
+      sender() ! wrap(InteractiveElementActionMessage(12224, 12))
     case MarketConsultResultMessage(sales, count) =>
-      /*
-        market items come by 10
-       */
-      for (i <- 10 until count by 10)
-        sender() ! wrap(MarketConsultRequestMessage(Array.empty, -1, -1, -1, -1, i.toShort, lowestMode = true))
-      unstashAll()
-      become(receiveSales(sender()))
-    case _ => stash()
+      sender() ! wrap(MarketConsultRequestMessage(Array.empty, -1, -1, -1, -1, 10.toShort, lowestMode = false))
+      become(receiveAndAsk(sales.toList, 10))
   }
 
-  def receiveSales(connection: ActorRef): Receive = {
+  def receiveAndAsk(entries: List[MarketEntry], start: Int): Receive = {
     case MarketConsultResultMessage(sales, count) =>
-    // do something with them...
+      val next = start + 10
+      if (next >= count)
+        handleData(entries ::: sales.toList)
+      else {
+        sender() ! wrap(MarketConsultRequestMessage(Array.empty, -1, -1, -1, -1, next.toShort, lowestMode = false))
+        become(receiveAndAsk(entries ::: sales.toList, next))
+      }
+  }
+
+  def handleData(data: List[MarketEntry]) = {
+    // stuff
+    stop(self)
   }
 ```
