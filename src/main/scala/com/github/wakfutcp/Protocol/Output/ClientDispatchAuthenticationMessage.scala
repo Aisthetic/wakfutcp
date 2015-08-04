@@ -26,10 +26,9 @@ object ClientDispatchAuthenticationMessage
     )
   }
 
-  def write(msg: ClientDispatchAuthenticationMessage) = {
-    val buf = ByteBuffer.allocate(4 + msg.encryptedCredentials.length)
-    buf.putInt(msg.encryptedCredentials.length)
-    buf.put(msg.encryptedCredentials)
-    pack(buf.array, 8)
-  }
+  def write(msg: ClientDispatchAuthenticationMessage) = pack(ByteBuffer
+    .allocate(4 + msg.encryptedCredentials.length)
+    .putInt(msg.encryptedCredentials.length)
+    .put(msg.encryptedCredentials)
+    .array, 8)
 }

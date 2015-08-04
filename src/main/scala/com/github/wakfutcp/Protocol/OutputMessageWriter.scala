@@ -35,4 +35,9 @@ object OutputMessageWriter {
   implicit val partyInfo = PartyInfoRequestMessage
   implicit val giftInventoryReq = GiftInventoryRequestMessage
   implicit val marketConsult = MarketConsultRequestMessage
+  implicit val fightCreation = FightCreationRequestMessage
+  implicit val fighterEndTurnReq = FighterEndTurnRequestMessage
+  implicit val fighterReadyReq = FighterReadyRequestMessage
+  implicit val fighterTurnEndAck = FighterTurnEndAckMessage
+  implicit val spellCastReq = SpellLevelCastRequestMessage
 }

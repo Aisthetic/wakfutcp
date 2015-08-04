@@ -14,11 +14,10 @@ object CharacterSelectionMessage
   extends OutputMessageWriter[CharacterSelectionMessage] {
   val id = 2049
 
-  def write(msg: CharacterSelectionMessage) = {
-    val buf = ByteBuffer.allocate(12 + msg.characterName.length)
-    buf.putLong(msg.characterId)
-    buf.putInt(msg.characterName.length)
-    buf.put(msg.characterName.getBytes("UTF-8"))
-    pack(buf.array, 2)
-  }
+  def write(msg: CharacterSelectionMessage) = pack(ByteBuffer
+    .allocate(12 + msg.characterName.length)
+    .putLong(msg.characterId)
+    .putInt(msg.characterName.length)
+    .put(msg.characterName.getBytes("UTF-8"))
+    .array, 2)
 }

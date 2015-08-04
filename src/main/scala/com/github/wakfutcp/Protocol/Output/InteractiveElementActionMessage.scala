@@ -14,10 +14,9 @@ object InteractiveElementActionMessage
   extends OutputMessageWriter[InteractiveElementActionMessage] {
   val id = 201
 
-  def write(msg: InteractiveElementActionMessage) = {
-    val buf = ByteBuffer.allocate(12)
-    buf.putLong(msg.elementId)
-    buf.putShort(msg.actionId)
-    pack(buf.array, 3)
-  }
+  def write(msg: InteractiveElementActionMessage) = pack(ByteBuffer
+    .allocate(12)
+    .putLong(msg.elementId)
+    .putShort(msg.actionId)
+    .array, 3)
 }

@@ -20,13 +20,14 @@ object MarketConsultRequestMessage
   val id = 15263
 
   def write(msg: MarketConsultRequestMessage) = {
-    val buf = ByteBuffer.allocate(14 + msg.itemRefs.length * 4)
-    buf.putShort(msg.itemType)
-    buf.putInt(msg.minPrice)
-    buf.putInt(msg.maxPrice)
-    buf.put(msg.sortType)
-    buf.putShort(msg.firstIdx)
-    buf.put((if (msg.lowestMode) 1 else 0).toByte)
+    val buf = ByteBuffer
+      .allocate(14 + msg.itemRefs.length * 4)
+      .putShort(msg.itemType)
+      .putInt(msg.minPrice)
+      .putInt(msg.maxPrice)
+      .put(msg.sortType)
+      .putShort(msg.firstIdx)
+      .put((if (msg.lowestMode) 1 else 0).toByte)
     msg.itemRefs.foreach(buf.putInt)
     pack(buf.array, 3)
   }

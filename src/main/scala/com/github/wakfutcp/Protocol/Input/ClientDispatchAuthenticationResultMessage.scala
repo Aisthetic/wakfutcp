@@ -3,7 +3,7 @@ package com.github.wakfutcp.Protocol.Input
 import java.nio.ByteBuffer
 
 import com.github.wakfutcp.Protocol.Input.ClientDispatchAuthenticationResultMessage.Result
-import com.github.wakfutcp.Protocol.{InputMessageReader, InputMessage}
+import com.github.wakfutcp.Protocol.{InputMessage, InputMessageReader}
 
 case class ClientDispatchAuthenticationResultMessage
 (

@@ -16,10 +16,10 @@ object ClientVersionMessage
 
   def write(msg: ClientVersionMessage) = {
     val build = "-1".getBytes("UTF-8")
-    val buf = ByteBuffer.allocate(7)
-    buf.put(Version.write(msg.version).array)
-    buf.put(build.length.toByte)
-    buf.put(build)
-    pack(buf.array, 0)
+    pack(ByteBuffer.allocate(7)
+      .put(Version.write(msg.version).array)
+      .put(build.length.toByte)
+      .put(build)
+      .array, 0)
   }
 }

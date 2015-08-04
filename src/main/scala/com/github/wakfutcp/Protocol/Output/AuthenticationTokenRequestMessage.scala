@@ -14,10 +14,9 @@ object AuthenticationTokenRequestMessage
   extends OutputMessageWriter[AuthenticationTokenRequestMessage] {
   val id = 1211
 
-  def write(msg: AuthenticationTokenRequestMessage) = {
-    val buf = ByteBuffer.allocate(12)
-    buf.putInt(msg.serverId)
-    buf.putLong(msg.accountId)
-    pack(buf.array, 8)
-  }
+  def write(msg: AuthenticationTokenRequestMessage) = pack(ByteBuffer
+    .allocate(12)
+    .putInt(msg.serverId)
+    .putLong(msg.accountId)
+    .array, 8)
 }

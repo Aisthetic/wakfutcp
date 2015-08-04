@@ -1,14 +1,12 @@
 package com.github.wakfutcp
 
 import java.net.InetSocketAddress
-import java.nio.ByteBuffer
 
 import akka.actor._
 import akka.io.{IO, Tcp}
 import akka.util.ByteString
 import com.github.wakfutcp.Protocol.Input._
 import com.github.wakfutcp.Protocol.InputMessageReader
-import com.github.wakfutcp.Util.Extensions
 
 object WakfuTcpClient {
   def props(handler: ActorRef, remote: InetSocketAddress) =
@@ -19,7 +17,6 @@ class WakfuTcpClient(val handler: ActorRef,
                      remote: InetSocketAddress)
   extends Actor with ActorLogging {
 
-  import Extensions._
   import Tcp._
   import context._
 
@@ -38,30 +35,20 @@ class WakfuTcpClient(val handler: ActorRef,
       become(connected(connection))
   }
 
-  /*
-    messages are often in chunks,
-    I process them one by one
-  */
   def connected(connection: ActorRef): Receive = {
     case CommandFailed(w: Write) =>
       log.error("write failed")
     case Received(data) =>
-      val buf = data.asByteBuffer
-      do {
-        val length = buf.getShort
-        if (length < 5 || length > buf.limit - buf.position + 2)
-          buf.position(buf.limit)
-        else {
-          val id = buf.getShort
-          getReader(id) match {
-            case Some(reader) =>
-              val buffer = ByteBuffer.wrap(buf.getByteArray(length - 4))
-              handler ! reader.read(buffer)
-            case None =>
-              buf.position(buf.position + length - 4)
-          }
-        }
-      } while (buf.limit > buf.position)
+      val received = data.asByteBuffer
+      val length = received.getShort
+      val id = received.getShort
+      getReader(id) match {
+        case Some(reader) if received.limit >= length =>
+          val buf = received.slice()
+          buf.limit(length - 4)
+          handler ! reader.read(buf)
+        case None =>
+      }
     case data: ByteString =>
       connection ! Write(data)
     case _: ConnectionClosed =>
@@ -85,6 +72,13 @@ class WakfuTcpClient(val handler: ActorRef,
     case 1212 => Some(AuthenticationTokenResultMessage)
     case 2048 => Some(CharactersListMessage)
     case 2050 => Some(CharacterSelectionResultMessage)
+    case 4102 => Some(ActorSpawnMessage)
+    case 4127 => Some(ActorMoveToMessage)
+    case 4524 => Some(FighterMoveMessage)
+    case 7906 => Some(FightersPlacementPositionMessage)
+    case 8100 => Some(TableTurnBeginMessage)
+    case 8106 => Some(FighterTurnEndMessage)
+    case 8300 => Some(EndFightMessage)
     case 20100 => Some(MarketConsultResultMessage)
     case _ => None
   }

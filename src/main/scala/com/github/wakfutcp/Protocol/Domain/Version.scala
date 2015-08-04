@@ -11,13 +11,11 @@ case class Version
 
 object Version
   extends DataObjectWriter[Version] with DataObjectReader[Version] {
-  def write(ver: Version) = {
-    val buf = ByteBuffer.allocate(4)
-    buf.put(ver.major.toByte)
-    buf.putShort(ver.minor.toShort)
-    buf.put(ver.revision.toByte)
-    buf
-  }
+  def write(ver: Version) = ByteBuffer
+    .allocate(4)
+    .put(ver.major.toByte)
+    .putShort(ver.minor.toShort)
+    .put(ver.revision.toByte)
 
   def read(buf: ByteBuffer) =
     Version(

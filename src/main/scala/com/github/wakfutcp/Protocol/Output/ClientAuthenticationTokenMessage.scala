@@ -14,10 +14,9 @@ object ClientAuthenticationTokenMessage
   extends OutputMessageWriter[ClientAuthenticationTokenMessage] {
   val id = 1213
 
-  def write(msg: ClientAuthenticationTokenMessage) = {
-    val buf = ByteBuffer.allocate(4 + msg.token.length)
-    buf.putInt(msg.token.length)
-    buf.put(msg.token.getBytes("UTF-8"))
-    pack(buf.array, 1)
-  }
+  def write(msg: ClientAuthenticationTokenMessage) = pack(ByteBuffer
+    .allocate(4 + msg.token.length)
+    .putInt(msg.token.length)
+    .put(msg.token.getBytes("UTF-8"))
+    .array, 1)
 }
