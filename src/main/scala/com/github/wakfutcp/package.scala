@@ -11,16 +11,22 @@ package object wakfutcp {
       ByteString(implicitly[OutputMessageWriter[T]].write(msg).array)
   }
 
+  trait State
+
+  trait Data
+
   // client protocol
-  case class ServerList(proxies: Array[Proxy], worldInfos: Array[WorldInfo])
+  final case class LogIn(username: String, password: String)
 
-  case class CharacterList(characters: Array[Character])
+  final case class ServerList(proxies: Array[Proxy], worldInfos: Array[WorldInfo])
 
-  case class ServerChoice(proxy: Proxy)
+  final case class CharacterList(characters: Array[Character])
 
-  case class CharacterChoice(character: Character)
+  final case class ServerChoice(proxy: Proxy)
 
-  case class ConnectedToWorld()
+  final case class CharacterChoice(character: Character)
+
+  final case class ConnectedToWorld()
 
   // exceptions
   case class ClientVersionException() extends Exception("Wrong client version")

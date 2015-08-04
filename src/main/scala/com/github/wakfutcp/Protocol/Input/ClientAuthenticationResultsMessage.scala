@@ -19,14 +19,14 @@ object ClientAuthenticationResultsMessage
     val resultCode = buf.get
     resultCode match {
       case 0 => Success(buf.getByteArray(buf.getShort))
-      case 2 => InvalidLogin()
-      case 3 => AlreadyConnected()
+      case 2 => InvalidLogin
+      case 3 => AlreadyConnected
       case 5 => AccountBanned(buf.getInt.minutes)
-      case 9 => ServerLocked()
-      case 10 => LoginServerDown()
-      case 11 => TooManyConnections()
-      case 40 => InvalidLogin()
-      case 42 => InvalidToken()
+      case 9 => ServerLocked
+      case 10 => LoginServerDown
+      case 11 => TooManyConnections
+      case 40 => InvalidLogin
+      case 42 => InvalidToken
       case _ =>
         throw new NotImplementedException()
     }
@@ -42,16 +42,16 @@ object ClientAuthenticationResultsMessage
     serializedAccountInformation: Array[Byte]
     ) extends ClientAuthenticationResultsMessage
 
-  case class ServerLocked() extends ClientAuthenticationResultsMessage
+  case object ServerLocked extends ClientAuthenticationResultsMessage
 
-  case class InvalidLogin() extends ClientAuthenticationResultsMessage
+  case object InvalidLogin extends ClientAuthenticationResultsMessage
 
-  case class AlreadyConnected() extends ClientAuthenticationResultsMessage
+  case object AlreadyConnected extends ClientAuthenticationResultsMessage
 
-  case class LoginServerDown() extends ClientAuthenticationResultsMessage
+  case object LoginServerDown extends ClientAuthenticationResultsMessage
 
-  case class TooManyConnections() extends ClientAuthenticationResultsMessage
+  case object TooManyConnections extends ClientAuthenticationResultsMessage
 
-  case class InvalidToken() extends ClientAuthenticationResultsMessage
+  case object InvalidToken extends ClientAuthenticationResultsMessage
 
 }

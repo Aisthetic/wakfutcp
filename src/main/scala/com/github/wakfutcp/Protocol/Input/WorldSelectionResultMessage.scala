@@ -12,13 +12,13 @@ object WorldSelectionResultMessage
   def read(buf: ByteBuffer) =
     buf.get match {
       case 0 | 9 =>
-        Success()
+        Success
       case _ =>
-        Failure()
+        Failure
     }
 
-  case class Success() extends WorldSelectionResultMessage
+  case object Success extends WorldSelectionResultMessage
 
-  case class Failure() extends WorldSelectionResultMessage
+  case object Failure extends WorldSelectionResultMessage
 
 }

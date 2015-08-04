@@ -8,7 +8,7 @@ object MarketSniffer {
   def props = Props[MarketSniffer]
 }
 
-class MarketSniffer extends Actor with Stash with Messenger {
+class MarketSniffer extends Actor with Messenger with ActorLogging {
 
   import context._
 

@@ -17,11 +17,11 @@ object AuthenticationTokenResultMessage
       case 0 =>
         Success(buf.getUTF8_32)
       case _ =>
-        Failure()
+        Failure
     }
 
   case class Success(token: String) extends AuthenticationTokenResultMessage
 
-  case class Failure() extends AuthenticationTokenResultMessage
+  case object Failure extends AuthenticationTokenResultMessage
 
 }

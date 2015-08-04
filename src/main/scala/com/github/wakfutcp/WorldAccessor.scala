@@ -7,88 +7,109 @@ import com.github.wakfutcp.Protocol.Domain.Version
 import com.github.wakfutcp.Protocol.Input._
 import com.github.wakfutcp.Protocol.InputMessage
 import com.github.wakfutcp.Protocol.Output._
+import com.github.wakfutcp.WorldAccessor._
 import com.github.wakfutcp.WorldDispatcher.WorldAuthToken
 
 import scala.concurrent.duration._
 
 object WorldAccessor {
-  def props(client: ActorRef, version: Version) =
-    Props(classOf[WorldAccessor], client, version)
+  def props(client: ActorRef, v: Version) =
+    Props(classOf[WorldAccessor], client, v)
+
+  // states
+  case object Uninitialized extends Data
+
+  case class ConnectionData(connection: ActorRef) extends Data
+
+  case object Authenticate extends State
+
+  case object EnterWorld extends State
+
+  case object MaintainConnection extends State
+
 }
 
-class WorldAccessor(val client: ActorRef, val version: Version)
-  extends Actor with ActorLogging with Stash with Messenger {
+class WorldAccessor(val client: ActorRef,
+                    val version: Version)
+  extends FSM[State, Data] with Stash with ActorLogging with Messenger {
 
   import context._
 
   val WorldHandleTimeout = 500.millis
 
-  def receive = {
-    case Connected(l, r) =>
-      unstashAll()
-      become(initializeConnection(sender()))
-    case _ => stash()
-  }
+  startWith(Authenticate, Uninitialized)
 
-  def initializeConnection(connection: ActorRef): Receive = {
-    case ClientIpMessage(_) =>
-      connection ! wrap(ClientVersionMessage(version))
+  when(Authenticate) {
+    case Event(_: Connected, _) =>
+      stay using ConnectionData(sender())
 
-    case ClientVersionResultMessage(success, required) =>
+    case Event(ClientIpMessage(_), ConnectionData(con)) =>
+      con ! wrap(ClientVersionMessage(version))
+      stay()
+
+    case Event(ClientVersionResultMessage(success, required), _) =>
       if (!success)
         throw ClientVersionException()
       unstashAll()
-      become {
-        case WorldAuthToken(tok) =>
-          connection ! wrap(ClientAuthenticationTokenMessage(tok))
-          unstashAll()
-          become(enterWorld(connection))
-        case _ => stash()
-      }
+      stay()
 
-    case _ => stash()
+    case Event(_: WorldAuthToken, Uninitialized) =>
+      stash()
+      stay()
+
+    case Event(WorldAuthToken(tok), ConnectionData(con)) =>
+      con ! wrap(ClientAuthenticationTokenMessage(tok))
+      goto(EnterWorld)
   }
 
-  def enterWorld(connection: ActorRef): Receive = {
-    case reason: ForcedDisconnectionReasonMessage =>
+  when(EnterWorld) {
+    case Event(reason: ForcedDisconnectionReasonMessage, _) =>
       throw ConnectionException(s"Force disconnected with $reason")
 
-    case ClientAuthenticationResultsMessage.Success(_) =>
+    case Event(ClientAuthenticationResultsMessage.Success(_), _) =>
       log.info("game world authentication successful")
+      stay()
 
-    case message: ClientAuthenticationResultsMessage =>
+    case Event(message: ClientAuthenticationResultsMessage, _) =>
       throw AuthenticationException(s"Game world auth failed with $message")
 
-    case WorldSelectionResultMessage.Success() =>
+    case Event(WorldSelectionResultMessage.Success, _) =>
       log.info("game world selection successful")
+      stay()
 
-    case WorldSelectionResultMessage.Failure() =>
+    case Event(WorldSelectionResultMessage.Failure, _) =>
       throw ConnectionException("Failed during world selection")
 
-    case CharactersListMessage(characters) =>
+    case Event(CharactersListMessage(characters), _) =>
       client ! CharacterList(characters)
+      stay()
 
-    case CharacterSelectionResultMessage.Success() =>
+    case Event(CharacterSelectionResultMessage.Success, _) =>
       log.info("character selection successful, entering the game world in {}", WorldHandleTimeout)
       system.scheduler.scheduleOnce(WorldHandleTimeout, client, ConnectedToWorld())
       watch(client)
-      become(connected(connection))
+      goto(MaintainConnection)
 
-    case CharacterSelectionResultMessage.Failure() =>
+    case Event(CharacterSelectionResultMessage.Failure, _) =>
       throw ConnectionException("Failed during character selection")
 
     // client
-    case CharacterChoice(character) =>
-      connection ! wrap(CharacterSelectionMessage(character.id, character.name))
+    case Event(CharacterChoice(character), ConnectionData(con)) =>
+      con ! wrap(CharacterSelectionMessage(character.id, character.name))
+      stay()
   }
 
-  def connected(connection: ActorRef): Receive = {
-    case msg: InputMessage =>
+  when(MaintainConnection) {
+    case Event(msg: InputMessage, _) =>
       client ! msg
-    case msg: ByteString =>
-      connection forward msg
-    case _: Terminated =>
-      connection ! wrap(EndConnectionMessage())
-      system.shutdown()
+      stay()
+
+    case Event(msg: ByteString, ConnectionData(con)) =>
+      con forward msg
+      stay()
+
+    case Event(_: Terminated, ConnectionData(con)) =>
+      con ! wrap(EndConnectionMessage())
+      stop()
   }
 }

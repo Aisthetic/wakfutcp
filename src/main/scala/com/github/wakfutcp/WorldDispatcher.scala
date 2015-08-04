@@ -6,85 +6,104 @@ import java.security.spec.X509EncodedKeySpec
 import javax.crypto.Cipher
 
 import akka.actor._
-import akka.io.Tcp.Connected
 import com.github.wakfutcp.Protocol.Domain.Version
 import com.github.wakfutcp.Protocol.Input._
 import com.github.wakfutcp.Protocol.Output._
-import com.github.wakfutcp.WorldDispatcher.{Credentials, WorldAuthToken}
+import com.github.wakfutcp.WorldDispatcher._
 
 object WorldDispatcher {
 
-  def props(client: ActorRef, credentials: Credentials) =
-    Props(classOf[WorldDispatcher], client, credentials)
+  def props(client: ActorRef) =
+    Props(classOf[WorldDispatcher], client)
 
-  case class Credentials(login: String, password: String)
+  // states
+  case object Uninitialized extends Data
 
+  case class Credentials(login: String, password: String) extends Data
+
+  case class ConnectionData(connection: ActorRef, credentials: Credentials, version: Version) extends Data
+
+  case class TokenRecipient(recipient: ActorRef) extends Data
+
+  case object AwaitLogin extends State
+
+  case object VerifyVersion extends State
+
+  case object ConnectToWorld extends State
+
+  case object ForwardAuthToken extends State
+
+  // messages
   case class WorldAuthToken(token: String)
 
 }
 
-class WorldDispatcher(val client: ActorRef, val credentials: Credentials)
-  extends Actor with ActorLogging with Stash with Messenger {
+class WorldDispatcher(val client: ActorRef)
+  extends FSM[State, Data] with ActorLogging with Messenger {
 
   import context._
 
   val OriginalVersion = Version(1, 43, 10)
 
-  def receive = {
-    case Connected(l, r) =>
-      become(obtainRequiredVersion(sender()))
+  startWith(AwaitLogin, Uninitialized)
+
+  when(AwaitLogin) {
+    case Event(LogIn(l, p), Uninitialized) =>
+      goto(VerifyVersion) using Credentials(l, p)
   }
 
-  /*
-    fetch the required version,
-    to pretend that we have it
-  */
-  def obtainRequiredVersion(connection: ActorRef): Receive = {
-    case ClientIpMessage(_) =>
-      connection ! wrap(ClientVersionMessage(OriginalVersion))
+  when(VerifyVersion) {
+    case Event(ClientIpMessage(_), credentials) =>
+      sender() ! wrap(ClientVersionMessage(OriginalVersion))
+      stay()
 
-    case ClientVersionResultMessage(success, required) =>
+    case Event(ClientVersionResultMessage(success, required), credentials: Credentials) =>
       log.info("server version: {}", required)
-      connection ! wrap(ClientPublicKeyRequestMessage(8))
-      become(connectToWorld(connection, required))
+      val con = sender()
+      con ! wrap(ClientPublicKeyRequestMessage(8))
+      goto(ConnectToWorld) using ConnectionData(con, credentials, required)
   }
 
-  def connectToWorld(connection: ActorRef, version: Version): Receive = {
-    case ClientPublicKeyMessage(salt, publicKey) =>
-      val cert = new X509EncodedKeySpec(publicKey)
+  when(ConnectToWorld) {
+    case Event(ClientPublicKeyMessage(salt, pubKey), ConnectionData(_, credentials, _)) =>
+      val cert = new X509EncodedKeySpec(pubKey)
       val keyFactory = KeyFactory.getInstance("RSA")
       val cipher = Cipher.getInstance("RSA")
       cipher.init(Cipher.ENCRYPT_MODE, keyFactory.generatePublic(cert))
-      connection ! wrap(ClientDispatchAuthenticationMessage
+      sender() ! wrap(ClientDispatchAuthenticationMessage
         .create(credentials.login, credentials.password, salt, cipher))
+      stay()
 
-    case ClientDispatchAuthenticationResultMessage(result, _, _) =>
+    case Event(ClientDispatchAuthenticationResultMessage(result, _, _), _) =>
       import ClientDispatchAuthenticationResultMessage._
       result match {
-        case Success() =>
+        case Success =>
           log.info("succesfully logged into the server")
-          connection ! wrap(ClientProxiesRequestMessage())
+          sender() ! wrap(ClientProxiesRequestMessage())
         case message =>
           throw AuthenticationException(s"Login failed with $message")
       }
+      stay()
 
-    case ClientProxiesResultMessage(proxies, worlds) =>
+    case Event(ClientProxiesResultMessage(proxies, worlds), _) =>
       client ! ServerList(proxies, worlds)
+      stay()
 
-    case ServerChoice(server) =>
-      connection ! wrap(AuthenticationTokenRequestMessage(server.id, 0))
+    case Event(ServerChoice(server), ConnectionData(con, _, version)) =>
+      con ! wrap(AuthenticationTokenRequestMessage(server.id, 0))
       val accessor = actorOf(Props(classOf[WorldAccessor], client, version))
       actorOf(Props(classOf[WakfuTcpClient], accessor,
         new InetSocketAddress(server.address, server.ports(0))))
-      become(awaitAuthToken(accessor))
+      goto(ForwardAuthToken) using TokenRecipient(accessor)
   }
 
-  def awaitAuthToken(world: ActorRef): Receive = {
-    case AuthenticationTokenResultMessage.Success(token) =>
-      world ! WorldAuthToken(token)
+  when(ForwardAuthToken) {
+    case Event(AuthenticationTokenResultMessage.Success(token), TokenRecipient(recipient)) =>
+      recipient ! WorldAuthToken(token)
       sender() ! wrap(EndConnectionMessage())
+      stay()
 
-    case AuthenticationTokenResultMessage.Failure() =>
+    case Event(AuthenticationTokenResultMessage.Failure, _) =>
       throw AuthenticationException("Failed to receive authentication token")
   }
 }

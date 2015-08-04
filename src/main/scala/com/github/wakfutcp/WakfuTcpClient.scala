@@ -41,13 +41,15 @@ class WakfuTcpClient(val handler: ActorRef,
     case Received(data) =>
       val received = data.asByteBuffer
       val length = received.getShort
-      val id = received.getShort
-      getReader(id) match {
-        case Some(reader) if received.limit >= length =>
-          val buf = received.slice()
-          buf.limit(length - 4)
-          handler ! reader.read(buf)
-        case None =>
+      if (length <= received.limit && length > 2) {
+        val id = received.getShort
+        getReader(id) match {
+          case Some(reader) =>
+            val buf = received.slice()
+            buf.limit(length - 4)
+            handler ! reader.read(buf)
+          case None =>
+        }
       }
     case data: ByteString =>
       connection ! Write(data)

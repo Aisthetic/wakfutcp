@@ -12,13 +12,13 @@ object CharacterSelectionResultMessage
   def read(buf: ByteBuffer) =
     buf.get match {
       case 0 =>
-        Success()
+        Success
       case _ =>
-        Failure()
+        Failure
     }
 
-  case class Success() extends CharacterSelectionResultMessage
+  case object Success extends CharacterSelectionResultMessage
 
-  case class Failure() extends CharacterSelectionResultMessage
+  case object Failure extends CharacterSelectionResultMessage
 
 }

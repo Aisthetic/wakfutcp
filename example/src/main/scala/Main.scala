@@ -1,8 +1,7 @@
 import java.net.InetSocketAddress
 
 import akka.actor._
-import com.github.wakfutcp.WorldDispatcher.Credentials
-import com.github.wakfutcp.{WakfuTcpClient, WorldDispatcher}
+import com.github.wakfutcp.{LogIn, WakfuTcpClient, WorldDispatcher}
 import com.typesafe.config.ConfigFactory
 
 object Main {
@@ -12,12 +11,13 @@ object Main {
     val gate = factory.getConfig("gate")
     val system = ActorSystem()
 
-    val mallrat = system.actorOf(Props[MarketSniffer])
+    val sniffer = system.actorOf(Props[MarketSniffer])
 
     // this handles connection
-    val dispatcher = system.actorOf(Props(classOf[WorldDispatcher], mallrat,
-      Credentials(account.getString("login"), account.getString("password"))))
+    val dispatcher = system.actorOf(Props(classOf[WorldDispatcher], sniffer))
     val tcpClient = system.actorOf(Props(classOf[WakfuTcpClient], dispatcher,
       new InetSocketAddress(gate.getString("address"), gate.getInt("port"))))
+
+    dispatcher ! LogIn(account.getString("login"), account.getString("password"))
   }
 }

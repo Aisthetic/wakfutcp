@@ -9,12 +9,11 @@ trait OutputMessageWriter[T <: OutputMessage] {
 
   protected def pack(data: Array[Byte], arch: Byte): ByteBuffer = {
     val len = data.length + 5
-    val output = ByteBuffer.allocate(len)
-    output.putShort(len.toShort)
-    output.put(arch)
-    output.putShort(id.toShort)
-    output.put(data)
-    output
+    ByteBuffer.allocate(len)
+      .putShort(len.toShort)
+      .put(arch)
+      .putShort(id.toShort)
+      .put(data)
   }
 
   def write(msg: T): ByteBuffer

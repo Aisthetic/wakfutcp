@@ -12,47 +12,47 @@ object ForcedDisconnectionReasonMessage
 
   def read(buf: ByteBuffer) =
     buf.get match {
-      case 1 => Spam()
-      case 2 => Timeout()
-      case 3 => KickedByReconnect()
-      case 4 => KickedByAdmin()
-      case 5 => BannedByAdmin()
-      case 7 => SessionDestroyed()
-      case 8 => ServerDoesNotAnswer()
-      case 9 => ServerShutdown()
-      case 12 => ServerError()
-      case 14 => SynchronizationError()
-      case 16 => ServerFull()
-      case 17 => TimedSessionEnd()
-      case 18 => AccountBanned()
+      case 1 => Spam
+      case 2 => Timeout
+      case 3 => KickedByReconnect
+      case 4 => KickedByAdmin
+      case 5 => BannedByAdmin
+      case 7 => SessionDestroyed
+      case 8 => ServerDoesNotAnswer
+      case 9 => ServerShutdown
+      case 12 => ServerError
+      case 14 => SynchronizationError
+      case 16 => ServerFull
+      case 17 => TimedSessionEnd
+      case 18 => AccountBanned
       case _ =>
         throw new NotImplementedException()
     }
 
-  case class Spam() extends ForcedDisconnectionReasonMessage
+  case object Spam extends ForcedDisconnectionReasonMessage
 
-  case class Timeout() extends ForcedDisconnectionReasonMessage
+  case object Timeout extends ForcedDisconnectionReasonMessage
 
-  case class KickedByReconnect() extends ForcedDisconnectionReasonMessage
+  case object KickedByReconnect extends ForcedDisconnectionReasonMessage
 
-  case class KickedByAdmin() extends ForcedDisconnectionReasonMessage
+  case object KickedByAdmin extends ForcedDisconnectionReasonMessage
 
-  case class AccountBanned() extends ForcedDisconnectionReasonMessage
+  case object AccountBanned extends ForcedDisconnectionReasonMessage
 
-  case class BannedByAdmin() extends ForcedDisconnectionReasonMessage
+  case object BannedByAdmin extends ForcedDisconnectionReasonMessage
 
-  case class SessionDestroyed() extends ForcedDisconnectionReasonMessage
+  case object SessionDestroyed extends ForcedDisconnectionReasonMessage
 
-  case class ServerDoesNotAnswer() extends ForcedDisconnectionReasonMessage
+  case object ServerDoesNotAnswer extends ForcedDisconnectionReasonMessage
 
-  case class ServerShutdown() extends ForcedDisconnectionReasonMessage
+  case object ServerShutdown extends ForcedDisconnectionReasonMessage
 
-  case class ServerError() extends ForcedDisconnectionReasonMessage
+  case object ServerError extends ForcedDisconnectionReasonMessage
 
-  case class SynchronizationError() extends ForcedDisconnectionReasonMessage
+  case object SynchronizationError extends ForcedDisconnectionReasonMessage
 
-  case class TimedSessionEnd() extends ForcedDisconnectionReasonMessage
+  case object TimedSessionEnd extends ForcedDisconnectionReasonMessage
 
-  case class ServerFull() extends ForcedDisconnectionReasonMessage
+  case object ServerFull extends ForcedDisconnectionReasonMessage
 
 }
