@@ -3,10 +3,10 @@ package com.github.wakfutcp
 import akka.actor._
 import akka.io.Tcp.Connected
 import akka.util.ByteString
-import com.github.wakfutcp.Protocol.Domain.Version
-import com.github.wakfutcp.Protocol.Input._
-import com.github.wakfutcp.Protocol.InputMessage
-import com.github.wakfutcp.Protocol.Output._
+import com.github.wakfutcp.protocol.domain.Version
+import com.github.wakfutcp.protocol.input._
+import com.github.wakfutcp.protocol.InputMessage
+import com.github.wakfutcp.protocol.output._
 import com.github.wakfutcp.WorldAccessor._
 import com.github.wakfutcp.WorldDispatcher.WorldAuthToken
 

@@ -1,8 +1,8 @@
 package com.github
 
 import akka.util.ByteString
-import com.github.wakfutcp.Protocol.Domain.{Character, Proxy, WorldInfo}
-import com.github.wakfutcp.Protocol.{OutputMessage, OutputMessageWriter}
+import com.github.wakfutcp.protocol.domain.{Character, Proxy, WorldInfo}
+import com.github.wakfutcp.protocol.{OutputMessage, OutputMessageWriter}
 
 package object wakfutcp {
 

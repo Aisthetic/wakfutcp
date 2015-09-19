@@ -1,7 +1,7 @@
 import akka.actor._
-import com.github.wakfutcp.Protocol.Domain._
-import com.github.wakfutcp.Protocol.Input._
-import com.github.wakfutcp.Protocol.Output._
+import com.github.wakfutcp.protocol.domain._
+import com.github.wakfutcp.protocol.input._
+import com.github.wakfutcp.protocol.output._
 import com.github.wakfutcp._
 
 object MarketSniffer {

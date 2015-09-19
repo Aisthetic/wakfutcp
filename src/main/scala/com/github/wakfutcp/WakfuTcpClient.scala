@@ -5,8 +5,8 @@ import java.net.InetSocketAddress
 import akka.actor._
 import akka.io.{IO, Tcp}
 import akka.util.ByteString
-import com.github.wakfutcp.Protocol.Input._
-import com.github.wakfutcp.Protocol.InputMessageReader
+import com.github.wakfutcp.protocol.input._
+import com.github.wakfutcp.protocol.InputMessageReader
 
 object WakfuTcpClient {
   def props(handler: ActorRef, remote: InetSocketAddress) =
