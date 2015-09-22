@@ -1,13 +1,10 @@
-# wakfutcp
-This is a TCP client written in Scala, using the
-Akka framework. It's goal is to perform interactions
-with the wakfu game servers like a regular game client.
+# Synopsis
+This is a TCP client which can connect to Wakfu game servers and interact with them.
+By default it contains a set of messages and routines to perform authentication and some other basic tasks.
+It uses the actor pattern and integrates with the Akka framework.
 
-The idea is basically that you create a client actor which makes use
-of the connection Actors to interact with the game.
-
-Here's an example market reading Actor:
-
+# Code example
+Market reading actor:
 ```scala
 def receive = {
     case ServerList(servers, _) =>
@@ -37,3 +34,8 @@ def receive = {
     stop(self)
   }
 ```
+
+# Running
+To use it you need sbt and scala compiler.
+
+The easiest way to check it out is to clone this repository and run `sbt run` in the `example` directory
