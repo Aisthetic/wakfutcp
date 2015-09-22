@@ -1,10 +1,8 @@
-name := "wakfutcpexample"
 
-version := "0.1"
+lazy val wakfuTcp = ProjectRef(uri("git://github.com/jac3km4/wakfutcp.git"), "wakfutcp")
 
-scalaVersion := "2.11.7"
-
-libraryDependencies ++= Seq(
-  "com.github" %% "wakfutcp" % "0.1",
-  "com.typesafe.akka" %% "akka-actor" % "2.3.11"
-)
+lazy val root = (project in file("."))
+  .settings(
+    version := "0.11",
+    scalaVersion := "2.11.7"
+  ).dependsOn(wakfuTcp)
