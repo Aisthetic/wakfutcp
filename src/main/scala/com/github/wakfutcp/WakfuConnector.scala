@@ -92,6 +92,13 @@ class WakfuConnector(val client: ActorRef,
       client ! ServerList(proxies, worlds)
       stay()
 
+    case Event(LogOut, _) ⇒
+      log.info("logging out")
+      connection ! wrap(EndConnectionMessage())
+      connection ! Disconnect
+      system.terminate()
+      stop()
+
     case Event(ServerChoice(server), RequiredVersion(version)) ⇒
       connection ! wrap(AuthenticationTokenRequestMessage(server.id, 0))
 
