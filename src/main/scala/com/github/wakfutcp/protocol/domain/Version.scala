@@ -19,9 +19,9 @@ object Version
 
   def read(buf: ByteBuffer) =
     Version(
-      buf.get,
-      buf.getShort,
-      buf.get
+      buf.get.toInt,
+      buf.getShort.toInt,
+      buf.get.toInt
     )
 
   def readWithBuild(buf: ByteBuffer) = {

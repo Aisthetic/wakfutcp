@@ -2,7 +2,7 @@ package com.github.wakfutcp.protocol
 
 import java.nio.ByteBuffer
 
-import com.github.wakfutcp.protocol.output._
+import com.github.wakfutcp.protocol.raw.output._
 
 trait OutputMessageWriter[T <: OutputMessage] {
   def id: Int

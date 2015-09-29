@@ -1,3 +1,4 @@
+
 name := "wakfutcp"
 
 version := "0.11"
@@ -26,5 +27,9 @@ scalacOptions ++= Seq(
 
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-actor" % "2.4.0-RC3",
-  "com.github.nscala-time" %% "nscala-time" % "2.2.0"
+  "com.typesafe.akka" %% "akka-testkit" % "2.4.0-RC3" % "test",
+  "com.github.nscala-time" %% "nscala-time" % "2.2.0",
+  "org.scalatest" %% "scalatest" % "2.2.4" % "test"
 )
+
+Seq(Revolver.settings: _*)

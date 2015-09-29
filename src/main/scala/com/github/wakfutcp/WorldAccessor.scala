@@ -3,12 +3,15 @@ package com.github.wakfutcp
 import akka.actor._
 import akka.io.Tcp.Connected
 import akka.util.ByteString
-import com.github.wakfutcp.protocol.domain.Version
-import com.github.wakfutcp.protocol.input._
-import com.github.wakfutcp.protocol.InputMessage
-import com.github.wakfutcp.protocol.output._
+import com.github.wakfutcp.Exceptions._
 import com.github.wakfutcp.WorldAccessor._
 import com.github.wakfutcp.WorldDispatcher.WorldAuthToken
+import com.github.wakfutcp.protocol.InputMessage
+import com.github.wakfutcp.protocol.client.input._
+import com.github.wakfutcp.protocol.client.output._
+import com.github.wakfutcp.protocol.domain.Version
+import com.github.wakfutcp.protocol.raw.input._
+import com.github.wakfutcp.protocol.raw.output._
 
 import scala.concurrent.duration._
 
@@ -40,75 +43,78 @@ class WorldAccessor(val client: ActorRef,
   startWith(Authenticate, Uninitialized)
 
   when(Authenticate) {
-    case Event(_: Connected, _) =>
+    case Event(_: Connected, _) ⇒
       stay using ConnectionData(sender())
 
-    case Event(ClientIpMessage(_), ConnectionData(con)) =>
+    case Event(ClientIpMessage(_), ConnectionData(con)) ⇒
       con ! wrap(ClientVersionMessage(version))
       stay()
 
-    case Event(ClientVersionResultMessage(success, required), _) =>
+    case Event(ClientVersionResultMessage(success, required), _) ⇒
       if (!success)
         throw ClientVersionException()
       unstashAll()
       stay()
 
-    case Event(_: WorldAuthToken, Uninitialized) =>
+    case Event(_: WorldAuthToken, Uninitialized) ⇒
       stash()
       stay()
 
-    case Event(WorldAuthToken(tok), ConnectionData(con)) =>
+    case Event(WorldAuthToken(tok), ConnectionData(con)) ⇒
       con ! wrap(ClientAuthenticationTokenMessage(tok))
       goto(EnterWorld)
   }
 
   when(EnterWorld) {
-    case Event(reason: ForcedDisconnectionReasonMessage, _) =>
+    case Event(reason: ForcedDisconnectionReasonMessage, _) ⇒
       throw ConnectionException(s"Force disconnected with $reason")
 
-    case Event(ClientAuthenticationResultsMessage.Success(_), _) =>
+    case Event(ClientAuthenticationResultsMessage.Success(_), _) ⇒
       log.info("game world authentication successful")
       stay()
 
-    case Event(message: ClientAuthenticationResultsMessage, _) =>
+    case Event(message: ClientAuthenticationResultsMessage, _) ⇒
       throw AuthenticationException(s"Game world auth failed with $message")
 
-    case Event(WorldSelectionResultMessage.Success, _) =>
+    case Event(WorldSelectionResultMessage.Success, _) ⇒
       log.info("game world selection successful")
       stay()
 
-    case Event(WorldSelectionResultMessage.Failure, _) =>
+    case Event(WorldSelectionResultMessage.Failure, _) ⇒
       throw ConnectionException("Failed during world selection")
 
-    case Event(CharactersListMessage(characters), _) =>
+    case Event(CharactersListMessage(characters), _) ⇒
       client ! CharacterList(characters)
       stay()
 
-    case Event(CharacterSelectionResultMessage.Success, _) =>
+    case Event(CharacterSelectionResultMessage.Success, _) ⇒
       log.info("character selection successful, entering the game world in {}", WorldHandleTimeout)
       system.scheduler.scheduleOnce(WorldHandleTimeout, client, ConnectedToWorld())
       watch(client)
       goto(MaintainConnection)
 
-    case Event(CharacterSelectionResultMessage.Failure, _) =>
+    case Event(CharacterSelectionResultMessage.Failure, _) ⇒
       throw ConnectionException("Failed during character selection")
 
     // client
-    case Event(CharacterChoice(character), ConnectionData(con)) =>
+    case Event(CharacterChoice(character), ConnectionData(con)) ⇒
       con ! wrap(CharacterSelectionMessage(character.id, character.name))
       stay()
+
+    case Event(LogOut, _) ⇒
+      stop()
   }
 
   when(MaintainConnection) {
-    case Event(msg: InputMessage, _) =>
+    case Event(msg: InputMessage, _) ⇒
       client ! msg
       stay()
 
-    case Event(msg: ByteString, ConnectionData(con)) =>
+    case Event(msg: ByteString, ConnectionData(con)) ⇒
       con forward msg
       stay()
 
-    case Event(_: Terminated, ConnectionData(con)) =>
+    case Event(_: Terminated, ConnectionData(con)) ⇒
       con ! wrap(EndConnectionMessage())
       stop()
   }

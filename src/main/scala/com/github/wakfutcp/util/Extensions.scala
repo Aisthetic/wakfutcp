@@ -17,7 +17,7 @@ object Extensions {
     }
 
     def getUTF8_16 = {
-      val content = new Array[Byte](buf.getShort)
+      val content = new Array[Byte](buf.getShort.toInt)
       buf.get(content)
       new String(content, "UTF-8")
     }
@@ -35,7 +35,7 @@ object Extensions {
     }
 
     def getByteArray_16 = {
-      val data = new Array[Byte](buf.getShort)
+      val data = new Array[Byte](buf.getShort.toInt)
       buf.get(data)
       data
     }

@@ -6,10 +6,13 @@ import java.security.spec.X509EncodedKeySpec
 import javax.crypto.Cipher
 
 import akka.actor._
-import com.github.wakfutcp.protocol.domain.Version
-import com.github.wakfutcp.protocol.input._
-import com.github.wakfutcp.protocol.output._
+import com.github.wakfutcp.Exceptions._
 import com.github.wakfutcp.WorldDispatcher._
+import com.github.wakfutcp.protocol.client.input._
+import com.github.wakfutcp.protocol.client.output._
+import com.github.wakfutcp.protocol.domain.Version
+import com.github.wakfutcp.protocol.raw.input._
+import com.github.wakfutcp.protocol.raw.output._
 
 object WorldDispatcher {
 
@@ -48,16 +51,16 @@ class WorldDispatcher(val client: ActorRef)
   startWith(AwaitLogin, Uninitialized)
 
   when(AwaitLogin) {
-    case Event(LogIn(l, p), Uninitialized) =>
+    case Event(LogIn(l, p), Uninitialized) ⇒
       goto(VerifyVersion) using Credentials(l, p)
   }
 
   when(VerifyVersion) {
-    case Event(ClientIpMessage(_), credentials) =>
+    case Event(ClientIpMessage(_), credentials) ⇒
       sender() ! wrap(ClientVersionMessage(OriginalVersion))
       stay()
 
-    case Event(ClientVersionResultMessage(success, required), credentials: Credentials) =>
+    case Event(ClientVersionResultMessage(success, required), credentials: Credentials) ⇒
       log.info("server version: {}", required)
       val con = sender()
       con ! wrap(ClientPublicKeyRequestMessage(8))
@@ -65,7 +68,7 @@ class WorldDispatcher(val client: ActorRef)
   }
 
   when(ConnectToWorld) {
-    case Event(ClientPublicKeyMessage(salt, pubKey), ConnectionData(_, credentials, _)) =>
+    case Event(ClientPublicKeyMessage(salt, pubKey), ConnectionData(_, credentials, _)) ⇒
       val cert = new X509EncodedKeySpec(pubKey)
       val keyFactory = KeyFactory.getInstance("RSA")
       val cipher = Cipher.getInstance("RSA")
@@ -74,22 +77,22 @@ class WorldDispatcher(val client: ActorRef)
         .create(credentials.login, credentials.password, salt, cipher))
       stay()
 
-    case Event(ClientDispatchAuthenticationResultMessage(result, _, _), _) =>
+    case Event(ClientDispatchAuthenticationResultMessage(result, _, _), _) ⇒
       import ClientDispatchAuthenticationResultMessage._
       result match {
-        case Success =>
+        case Success ⇒
           log.info("succesfully logged into the server")
           sender() ! wrap(ClientProxiesRequestMessage())
-        case message =>
+        case message ⇒
           throw AuthenticationException(s"Login failed with $message")
       }
       stay()
 
-    case Event(ClientProxiesResultMessage(proxies, worlds), _) =>
+    case Event(ClientProxiesResultMessage(proxies, worlds), _) ⇒
       client ! ServerList(proxies, worlds)
       stay()
 
-    case Event(ServerChoice(server), ConnectionData(con, _, version)) =>
+    case Event(ServerChoice(server), ConnectionData(con, _, version)) ⇒
       con ! wrap(AuthenticationTokenRequestMessage(server.id, 0))
       val accessor = actorOf(Props(classOf[WorldAccessor], client, version))
       actorOf(Props(classOf[WakfuTcpClient], accessor,
@@ -98,12 +101,12 @@ class WorldDispatcher(val client: ActorRef)
   }
 
   when(ForwardAuthToken) {
-    case Event(AuthenticationTokenResultMessage.Success(token), TokenRecipient(recipient)) =>
+    case Event(AuthenticationTokenResultMessage.Success(token), TokenRecipient(recipient)) ⇒
       recipient ! WorldAuthToken(token)
       sender() ! wrap(EndConnectionMessage())
       stay()
 
-    case Event(AuthenticationTokenResultMessage.Failure, _) =>
+    case Event(AuthenticationTokenResultMessage.Failure, _) ⇒
       throw AuthenticationException("Failed to receive authentication token")
   }
 }

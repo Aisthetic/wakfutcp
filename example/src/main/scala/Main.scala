@@ -1,7 +1,8 @@
 import java.net.InetSocketAddress
 
 import akka.actor._
-import com.github.wakfutcp.{LogIn, WakfuTcpClient, WorldDispatcher}
+import com.github.wakfutcp.protocol.client.output.LogIn
+import com.github.wakfutcp.{WakfuTcpClient, WorldDispatcher}
 import com.typesafe.config.ConfigFactory
 
 object Main {

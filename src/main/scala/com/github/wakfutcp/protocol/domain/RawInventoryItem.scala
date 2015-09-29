@@ -30,7 +30,7 @@ object RawInventoryItem extends DataObjectReader[RawInventoryItem] {
       if (buf.get == 1) Some(new DateTime(buf.getLong)) else None,
       if (buf.get == 1) Some(RawPet.read(buf)) else None,
       if (buf.get == 1) Some(RawItemXp.read(buf)) else None,
-      if (buf.get == 1) Some(Array.fill(buf.getShort)(RawGem.read(buf))) else None,
+      if (buf.get == 1) Some(Array.fill(buf.getShort.toInt)(RawGem.read(buf))) else None,
       if (buf.get == 1) Some(RawRentInfo.read(buf)) else None,
       if (buf.get == 1) Some(RawCompanionInfo.read(buf)) else None,
       if (buf.get == 1) Some(RawItemBind.read(buf)) else None,
