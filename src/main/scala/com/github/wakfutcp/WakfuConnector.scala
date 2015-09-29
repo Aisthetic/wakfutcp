@@ -6,79 +6,79 @@ import java.security.spec.X509EncodedKeySpec
 import javax.crypto.Cipher
 
 import akka.actor._
-import com.github.wakfutcp.Exceptions._
-import com.github.wakfutcp.WorldDispatcher._
-import com.github.wakfutcp.protocol.client.input._
-import com.github.wakfutcp.protocol.client.output._
+import com.github.wakfutcp.Exceptions.AuthenticationException
+import com.github.wakfutcp.WakfuConnector._
+import com.github.wakfutcp.WakfuTcpClient.Disconnect
+import com.github.wakfutcp.protocol.client.input.ServerList
+import com.github.wakfutcp.protocol.client.output.{LogOut, ServerChoice}
 import com.github.wakfutcp.protocol.domain.Version
 import com.github.wakfutcp.protocol.raw.input._
 import com.github.wakfutcp.protocol.raw.output._
 
-object WorldDispatcher {
+object WakfuConnector {
 
-  def props(client: ActorRef) =
-    Props(classOf[WorldDispatcher], client)
+  def props(client: ActorRef, address: InetSocketAddress, credentials: Credentials) =
+    Props(classOf[WakfuConnector], client, address, credentials)
 
-  // states
+  sealed trait State
+
+  sealed trait Data
+
   case object Uninitialized extends Data
 
-  case class Credentials(login: String, password: String) extends Data
-
-  case class ConnectionData(connection: ActorRef, credentials: Credentials, version: Version) extends Data
+  case class RequiredVersion(version: Version) extends Data
 
   case class TokenRecipient(recipient: ActorRef) extends Data
-
-  case object AwaitLogin extends State
 
   case object VerifyVersion extends State
 
   case object ConnectToWorld extends State
 
-  case object ForwardAuthToken extends State
+  case object Watch extends State
 
   // messages
   case class WorldAuthToken(token: String)
 
+  case class Credentials(login: String, password: String)
+
 }
 
-class WorldDispatcher(val client: ActorRef)
+class WakfuConnector(val client: ActorRef,
+                     address: InetSocketAddress,
+                     credentials: Credentials)
   extends FSM[State, Data] with ActorLogging with Messenger {
 
   import context._
 
-  val OriginalVersion = Version(1, 43, 10)
+  val connection = actorOf(Props(classOf[WakfuTcpClient], self, address))
 
-  startWith(AwaitLogin, Uninitialized)
+  val OriginalVersion = Version(1, 43, 10) // this shouldn't matter
 
-  when(AwaitLogin) {
-    case Event(LogIn(l, p), Uninitialized) ⇒
-      goto(VerifyVersion) using Credentials(l, p)
-  }
+  startWith(VerifyVersion, Uninitialized)
 
   when(VerifyVersion) {
-    case Event(ClientIpMessage(_), credentials) ⇒
+    case Event(ClientIpMessage(_), _) ⇒
       sender() ! wrap(ClientVersionMessage(OriginalVersion))
       stay()
 
-    case Event(ClientVersionResultMessage(success, required), credentials: Credentials) ⇒
+    case Event(ClientVersionResultMessage(success, required), _) ⇒
       log.info("server version: {}", required)
-      val con = sender()
-      con ! wrap(ClientPublicKeyRequestMessage(8))
-      goto(ConnectToWorld) using ConnectionData(con, credentials, required)
+      connection ! wrap(ClientPublicKeyRequestMessage(8))
+      goto(ConnectToWorld) using RequiredVersion(required)
   }
 
   when(ConnectToWorld) {
-    case Event(ClientPublicKeyMessage(salt, pubKey), ConnectionData(_, credentials, _)) ⇒
+    case Event(ClientPublicKeyMessage(salt, pubKey), _) ⇒
       val cert = new X509EncodedKeySpec(pubKey)
       val keyFactory = KeyFactory.getInstance("RSA")
       val cipher = Cipher.getInstance("RSA")
       cipher.init(Cipher.ENCRYPT_MODE, keyFactory.generatePublic(cert))
-      sender() ! wrap(ClientDispatchAuthenticationMessage
+      connection ! wrap(ClientDispatchAuthenticationMessage
         .create(credentials.login, credentials.password, salt, cipher))
       stay()
 
     case Event(ClientDispatchAuthenticationResultMessage(result, _, _), _) ⇒
-      import ClientDispatchAuthenticationResultMessage._
+      import ClientDispatchAuthenticationResultMessage.Success
       result match {
         case Success ⇒
           log.info("succesfully logged into the server")
@@ -92,15 +92,22 @@ class WorldDispatcher(val client: ActorRef)
       client ! ServerList(proxies, worlds)
       stay()
 
-    case Event(ServerChoice(server), ConnectionData(con, _, version)) ⇒
-      con ! wrap(AuthenticationTokenRequestMessage(server.id, 0))
-      val accessor = actorOf(Props(classOf[WorldAccessor], client, version))
-      actorOf(Props(classOf[WakfuTcpClient], accessor,
-        new InetSocketAddress(server.address, server.ports(0))))
-      goto(ForwardAuthToken) using TokenRecipient(accessor)
+    case Event(ServerChoice(server), RequiredVersion(version)) ⇒
+      connection ! wrap(AuthenticationTokenRequestMessage(server.id, 0))
+
+      val accessor = actorOf(Props(
+        classOf[WakfuWorldAccessor],
+        client,
+        new InetSocketAddress(server.address, server.ports(0)),
+        version
+      ))
+
+      watch(accessor)
+
+      goto(Watch) using TokenRecipient(accessor)
   }
 
-  when(ForwardAuthToken) {
+  when(Watch) {
     case Event(AuthenticationTokenResultMessage.Success(token), TokenRecipient(recipient)) ⇒
       recipient ! WorldAuthToken(token)
       sender() ! wrap(EndConnectionMessage())
@@ -108,5 +115,10 @@ class WorldDispatcher(val client: ActorRef)
 
     case Event(AuthenticationTokenResultMessage.Failure, _) ⇒
       throw AuthenticationException("Failed to receive authentication token")
+
+    case Event(LogOut, _) ⇒
+      connection ! Disconnect
+      system.terminate()
+      stop()
   }
 }

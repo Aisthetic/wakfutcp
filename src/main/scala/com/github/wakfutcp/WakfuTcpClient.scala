@@ -5,12 +5,15 @@ import java.net.InetSocketAddress
 import akka.actor._
 import akka.io.{IO, Tcp}
 import akka.util.ByteString
+import com.github.wakfutcp.WakfuTcpClient.Disconnect
 import com.github.wakfutcp.protocol.InputMessageReader
 import com.github.wakfutcp.protocol.raw.input._
 
 object WakfuTcpClient {
   def props(handler: ActorRef, remote: InetSocketAddress) =
     Props(classOf[WakfuTcpClient], handler, remote)
+
+  case object Disconnect
 }
 
 class WakfuTcpClient(val handler: ActorRef,
@@ -56,10 +59,8 @@ class WakfuTcpClient(val handler: ActorRef,
     case _: ConnectionClosed ⇒
       log.info("connection closed")
       stop(self)
-    case _: Terminated ⇒
-      log.info("terminating with listener")
+    case Disconnect ⇒
       connection ! Close
-      stop(self)
   }
 
   private def getReader(id: Short): Option[InputMessageReader[_]] = id match {
