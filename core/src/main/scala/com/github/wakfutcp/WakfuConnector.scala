@@ -13,12 +13,14 @@ import com.github.wakfutcp.protocol.client.input.ServerList
 import com.github.wakfutcp.protocol.client.output.{LogOut, ServerChoice}
 import com.github.wakfutcp.protocol.domain.Version
 import com.github.wakfutcp.protocol.raw.input._
+import com.github.wakfutcp.protocol.raw.output.Implicits._
 import com.github.wakfutcp.protocol.raw.output._
+import com.typesafe.config.{Config, ConfigFactory}
 
 object WakfuConnector {
 
-  def props(client: ActorRef, address: InetSocketAddress, credentials: Credentials) =
-    Props(classOf[WakfuConnector], client, address, credentials)
+  def props(client: ActorRef, credentials: Credentials, config: Option[Config]) =
+    Props(classOf[WakfuConnector], client, credentials, config)
 
   sealed trait State
 
@@ -34,7 +36,7 @@ object WakfuConnector {
 
   case object ConnectToWorld extends State
 
-  case object Watch extends State
+  case object ForwardToken extends State
 
   // messages
   case class WorldAuthToken(token: String)
@@ -44,21 +46,28 @@ object WakfuConnector {
 }
 
 class WakfuConnector(val client: ActorRef,
-                     address: InetSocketAddress,
-                     credentials: Credentials)
+                     credentials: Credentials,
+                     confOpt: Option[Config])
   extends FSM[State, Data] with ActorLogging with Messenger {
 
   import context._
 
-  val connection = actorOf(Props(classOf[WakfuTcpClient], self, address))
+  val config: Config = confOpt getOrElse ConfigFactory.load().getConfig("wakfutcp.default")
 
-  val OriginalVersion = Version(1, 43, 10) // this shouldn't matter
+  val connection: ActorRef = actorOf(
+    Props(
+      classOf[WakfuTcpClient],
+      self,
+      new InetSocketAddress(config.getString("gate.address"), config.getInt("gate.port"))
+    )
+  )
 
   startWith(VerifyVersion, Uninitialized)
 
   when(VerifyVersion) {
     case Event(ClientIpMessage(_), _) ⇒
-      sender() ! wrap(ClientVersionMessage(OriginalVersion))
+      val v = config.getString("gameVersion").split('.')
+      sender() ! wrap(ClientVersionMessage(Version(v(0).toInt, v(1).toInt, v(2).toInt)))
       stay()
 
     case Event(ClientVersionResultMessage(success, required), _) ⇒
@@ -73,8 +82,15 @@ class WakfuConnector(val client: ActorRef,
       val keyFactory = KeyFactory.getInstance("RSA")
       val cipher = Cipher.getInstance("RSA")
       cipher.init(Cipher.ENCRYPT_MODE, keyFactory.generatePublic(cert))
-      connection ! wrap(ClientDispatchAuthenticationMessage
-        .create(credentials.login, credentials.password, salt, cipher))
+      connection ! wrap(
+        ClientDispatchAuthenticationMessage
+          .create(
+            credentials.login,
+            credentials.password,
+            salt,
+            cipher
+          )
+      )
       stay()
 
     case Event(ClientDispatchAuthenticationResultMessage(result, _, _), _) ⇒
@@ -101,20 +117,23 @@ class WakfuConnector(val client: ActorRef,
 
     case Event(ServerChoice(server), RequiredVersion(version)) ⇒
       connection ! wrap(AuthenticationTokenRequestMessage(server.id, 0))
-
       val accessor = actorOf(Props(
         classOf[WakfuWorldAccessor],
         client,
         new InetSocketAddress(server.address, server.ports(0)),
-        version
+        if (config.getBoolean("useServerVersion")) version
+        else {
+          val v = config.getString("gameVersion").split('.')
+          Version(v(0).toInt, v(1).toInt, v(2).toInt)
+        }
       ))
 
       watch(accessor)
 
-      goto(Watch) using TokenRecipient(accessor)
+      goto(ForwardToken) using TokenRecipient(accessor)
   }
 
-  when(Watch) {
+  when(ForwardToken) {
     case Event(AuthenticationTokenResultMessage.Success(token), TokenRecipient(recipient)) ⇒
       recipient ! WorldAuthToken(token)
       sender() ! wrap(EndConnectionMessage())

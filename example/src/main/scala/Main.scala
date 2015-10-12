@@ -4,11 +4,12 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 object Main {
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
     val system = ActorSystem()
 
     val sniffer = system.actorOf(Props[MarketSniffer])
 
     Await.result(system.whenTerminated, Duration.Inf)
+    ()
   }
 }

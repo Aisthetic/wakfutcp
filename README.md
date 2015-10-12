@@ -30,12 +30,15 @@ def receive = {
   }
 
   def handleData(data: List[MarketEntry]) = {
-    // stuff
-    stop(self)
+    // do stuff with data and quit
+    
+    sender() ! LogOut
   }
 ```
 
 # Running
 To use it you need sbt and scala compiler.
 
-The easiest way to check it out is to clone this repository and run `sbt run` in the `example` directory
+The easiest way to check it out is to clone this repository,
+provide necessary configuration in `example/src/main/resources/application.conf`
+and run `sbt example/run`

@@ -1,27 +1,6 @@
-package com.github.wakfutcp.protocol
+package com.github.wakfutcp.protocol.raw.output
 
-import java.nio.ByteBuffer
-
-import com.github.wakfutcp.protocol.raw.output._
-
-trait OutputMessageWriter[T <: OutputMessage] {
-  def id: Int
-
-  protected def pack(data: Array[Byte], arch: Byte): ByteBuffer = {
-    val len = data.length + 5
-    ByteBuffer.allocate(len)
-      .putShort(len.toShort)
-      .put(arch)
-      .putShort(id.toShort)
-      .put(data)
-  }
-
-  def write(msg: T): ByteBuffer
-}
-
-object OutputMessageWriter {
-  // implicits for pimp-my-library pattern
-
+object Implicits {
   implicit val authTokenReq = AuthenticationTokenRequestMessage
   implicit val interactiveElementAction = InteractiveElementActionMessage
   implicit val charSelect = CharacterSelectionMessage

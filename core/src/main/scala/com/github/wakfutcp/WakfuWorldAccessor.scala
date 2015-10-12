@@ -14,6 +14,7 @@ import com.github.wakfutcp.protocol.client.input._
 import com.github.wakfutcp.protocol.client.output._
 import com.github.wakfutcp.protocol.domain.Version
 import com.github.wakfutcp.protocol.raw.input._
+import com.github.wakfutcp.protocol.raw.output.Implicits._
 import com.github.wakfutcp.protocol.raw.output._
 
 import scala.concurrent.duration._
@@ -50,7 +51,7 @@ class WakfuWorldAccessor(val client: ActorRef,
       stay()
 
     case Event(_: ClientIpMessage, _) ⇒
-      connection ! wrap(ClientVersionMessage(version))
+      connection ! wrap(ClientVersionMessage(Version(1, 44, 2)))
       stay()
 
     case Event(ClientVersionResultMessage(success, required), _) ⇒
