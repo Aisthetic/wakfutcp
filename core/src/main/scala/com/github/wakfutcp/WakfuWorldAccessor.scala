@@ -51,7 +51,7 @@ class WakfuWorldAccessor(val client: ActorRef,
       stay()
 
     case Event(_: ClientIpMessage, _) ⇒
-      connection ! wrap(ClientVersionMessage(Version(1, 44, 2)))
+      connection ! wrap(ClientVersionMessage(version))
       stay()
 
     case Event(ClientVersionResultMessage(success, required), _) ⇒
